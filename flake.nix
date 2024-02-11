@@ -11,12 +11,7 @@
   inputs = {
     # nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs.url = "nixpkgs-unstable";
-    poetry2nix = {
-      # url = "github:nix-community/poetry2nix";
-      url = "/home/sencho/n/git/github.com/SenchoPens/poetry2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    # inputs.jupyenv.url = "github:tweag/jupyenv";
+    # jupyenv.url = "github:tweag/jupyenv";
     jupyenv.url = "/home/sencho/n/git/github.com/SenchoPens/jupyterWith";
   };
 
@@ -32,50 +27,31 @@
         system,
         ...
       }: let
-        inherit (inputs'.poetry2nix.legacyPackages) mkPoetryEnv;
-        poetryOverrides = inputs'.poetry2nix.legacyPackages.overrides;
-        # Provides an environment with Python 3.10 with dependencies from pyproject.toml
-        poetryEnv = mkPoetryEnv {
-          projectDir = ./.;
-          python = pkgs.python311;
-          overrides = poetryOverrides;
-          # editablePackageSources = {
-          #   mygeneration = ./lib/mygeneration;
-          # };
-          # groups = [];
-          groups = ["dev"];
-          # otherwise compiles dependencies from source, which takes an enormous amount
-          # of time and resources when changing poetry.lock (e.g. mypy is very heavy to compile)
-          preferWheels = true;
-        };
         inherit (inputs.jupyenv.lib.${system}) mkJupyterlabNew;
-        jupyterlab = mkJupyterlabNew ({...}: {
+        jupyterlab = mkJupyterlabNew (builtins.trace "WHHAAAT" ({...}: {
           nixpkgs = inputs.nixpkgs;
           imports = [
-            {
+            ({pkgs, ...}: {
               kernel.python.da = {
                 enable = true;
-                inherit poetryEnv;
-                inherit (inputs) poetry2nix;
+                projectDir = ./.;
+                python = "python311"; # pkgs.python311;
+                groups = ["dev"];
+                preferWheels = true;
               };
-            }
+            })
           ];
-        });
+        }));
       in {
         devShells = {
           # Source code development shell:
           # formatters, checkers / linters, poetry CLI, etc.
           default = pkgs.mkShell {
             nativeBuildInputs = [
-              poetryEnv
+              pkgs.poetry
               jupyterlab
             ];
           };
-          # # Shell to generate music: test and run python code, play audio, edit soundfonts.
-          # mygeneration = pkgs.mkShell {
-          #   buildInputs = [
-          #   ];
-          # };
         };
 
         apps = {
@@ -85,12 +61,8 @@
           };
           poetry = {
             type = "app";
-            program = "${inputs'.poetry2nix.packages.poetry}/bin/poetry";
+            program = "${pkgs.poetry}/bin/poetry";
           };
-        };
-
-        packages = {
-          soundfonts = pkgs.soundfont-fluid;
         };
       };
       flake = {
